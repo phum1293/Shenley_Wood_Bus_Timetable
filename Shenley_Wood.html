@@ -24,11 +24,26 @@ body{font-family:Arial,Helvetica,sans-serif;background:#fff;color:#222;text-alig
 .disclaimer{flex:none;margin:0;padding-top:14px;border-top:1px solid #ddd;font-size:17px;line-height:1.4;color:#666}
 @media(max-height:1050px){body{padding:16px}.page{gap:12px}.route-name{font-size:40px}.bus-grid{gap:12px}.bus-card{padding:14px 20px}.direction{font-size:28px}.destination{font-size:21px;margin-bottom:12px}.message{font-size:24px;margin-bottom:10px}.countdown{font-size:80px;margin-bottom:10px}.scheduled-time{font-size:22px}.status{font-size:15px;margin-top:12px}.no-service{font-size:50px}.disclaimer{font-size:15px;padding-top:10px}}
 @media(max-width:600px){body{padding:14px}.direction{font-size:26px}.destination{font-size:20px}.message{font-size:22px}.countdown{font-size:72px}.no-service{font-size:44px}.scheduled-time{font-size:21px}.status{font-size:14px}.disclaimer{font-size:14px}}
+
+/* Clock header: balanced columns keep the route title centred. */
+.page-header{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:12px;flex:none;min-width:0}
+.current-clock{justify-self:start;display:flex;flex-direction:column;align-items:flex-start;gap:3px;padding:10px 16px;border:1px solid #d9ece7;border-radius:16px;background:linear-gradient(135deg,#f0faf7,#f7fbfc);box-shadow:0 3px 12px rgba(0,96,114,.06);text-align:left}
+.clock-label{font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#52736d}
+.clock-time{font-family:Arial,Helvetica,sans-serif;font-size:34px;font-weight:700;line-height:1.1;letter-spacing:-1px;font-variant-numeric:tabular-nums;color:#006072;white-space:nowrap}
+@media(max-height:1050px){.current-clock{padding:8px 12px;border-radius:13px}.clock-time{font-size:28px}.clock-label{font-size:9px}}
+@media(max-width:600px){.page-header{gap:8px}.current-clock{padding:8px 10px}.clock-time{font-size:24px}.clock-label{font-size:8px;letter-spacing:1px}.page-header .route-name{font-size:34px}}
 </style>
 </head>
 <body>
 <main class="page">
-  <div class="route-name">LOOP</div>
+  <header class="page-header">
+    <div class="current-clock" role="group" aria-label="Current time">
+      <span class="clock-label">Current time</span>
+      <time class="clock-time" id="current-time">--:--</time>
+    </div>
+    <div aria-hidden="true"></div>
+    <div aria-hidden="true"></div>
+  </header>
   <section class="bus-grid">
     <article class="bus-card" id="card-49000005947">
       <div class="direction"></div><div class="destination"></div><div class="message">Your next bus is due in...</div><div class="countdown">Loading...</div><div class="scheduled-time"></div><div class="status"></div>
@@ -57,12 +72,23 @@ function createDepartureDate(base,time){const [h,m]=time.split(":").map(Number),
 function nextDeparture(code,now,type){return (TIMETABLES[code][type]||[]).map(t=>createDepartureDate(now,t)).find(d=>d.getTime()>now.getTime())||null}
 function formatTime(d){return d.toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit",hour12:false})}
 function fields(code){const card=document.getElementById(`card-${code}`);return{card,direction:card.querySelector(".direction"),destination:card.querySelector(".destination"),message:card.querySelector(".message"),countdown:card.querySelector(".countdown"),scheduled:card.querySelector(".scheduled-time"),status:card.querySelector(".status")}}
-function updateStop(code,now,type){const stop=STOPS[code],f=fields(code);f.countdown.classList.remove("error","no-service");f.direction.textContent=stop.direction;f.destination.textContent=stop.destination;
+function updateStop(code,now,type){const stop=STOPS[code],f=fields(code);f.countdown.classList.remove("error","no-service");f.direction.textContent="LOOP \u2022 " + stop.direction;f.destination.textContent=stop.destination;
  if(type==="sunday"||type==="bankHoliday"){f.message.textContent="LOOP service not operating";f.countdown.textContent="No Service";f.countdown.classList.add("no-service");f.scheduled.textContent=type==="sunday"?"There is no LOOP service on Sundays.":"There is no LOOP service on bank holidays.";f.status.textContent="The LOOP service does not operate on Sundays or bank holidays.";return}
  const next=nextDeparture(code,now,type);if(!next){f.message.textContent="There are no more LOOP services today";f.countdown.textContent="Service Ended";f.countdown.classList.add("no-service");f.scheduled.textContent="Please check the next operating day's timetable.";f.status.textContent=`${stop.stopName} · SMS code ${stop.smsCode}`;return}
  const seconds=Math.floor((next-now)/1000),minutes=Math.ceil(seconds/60);f.message.textContent="Your next bus is due in...";f.countdown.textContent=seconds<=DUE_NOW_THRESHOLD_SECONDS?"Due now":minutes===1?"1 min":`${minutes} mins`;f.scheduled.textContent=`Scheduled departure: ${formatTime(next)}`;f.status.textContent=`${timetableDescription(type)} · ${stop.stopName} · SMS code ${stop.smsCode}`}
 function updateDisplay(){const now=new Date(),type=getOperatingDayType(now);Object.keys(STOPS).forEach(code=>updateStop(code,now,type))}
 updateDisplay();setInterval(updateDisplay,UPDATE_INTERVAL_MILLISECONDS);
+
+// Use the same device-local time as the existing timetable calculations.
+const clockElement=document.getElementById("current-time");
+function updateClock(){
+ const now=new Date();
+ clockElement.textContent=now.toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit",hour12:false});
+ clockElement.setAttribute("datetime",now.toISOString());
+}
+updateClock();
+setInterval(updateClock,1000);
+document.addEventListener("visibilitychange",()=>{if(!document.hidden)updateClock()});
 </script>
 </body>
 </html>
